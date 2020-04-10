@@ -19,12 +19,12 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import cv2
 import io
-
 import numpy as np
-
 from PIL import Image
 from tflite_runtime.interpreter import Interpreter
+
 
 
 def set_input_tensor(interpreter, image):
@@ -64,27 +64,15 @@ def detect_objects(interpreter, image, threshold):
   return results
 
 def main():
-  parser = argparse.ArgumentParser(
-      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument(
-      '--model', help='File path of .tflite file.', required=True)
-  parser.add_argument(
-      '--labels', help='File path of labels file.', required=True)
-  parser.add_argument(
-      '--threshold',
-      help='Score threshold for detected objects.',
-      required=False,
-      type=float,
-      default=0.4)
-  args = parser.parse_args()
 
-  interpreter = Interpreter(args.model)
+  interpreter = Interpreter("/tmp/detect.tflite")
   interpreter.allocate_tensors()
+  print(interpreter.get_input_details()[0]['shape'])
   _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
 
   image = Image.open("./test.jpeg").convert('RGB').resize((input_width, input_height), Image.ANTIALIAS)
 
-  results = detect_objects(interpreter, image, args.threshold)
+  results = detect_objects(interpreter, image, 0.4)
   print(results)
 
 
