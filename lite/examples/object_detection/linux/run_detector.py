@@ -14,17 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import argparse
 import cv2
+from datetime import datetime
 import io
 import numpy as np
-from PIL import Image
 from tflite_runtime.interpreter import Interpreter
 
+VIDEO_STREAM_URL = "rtsp://admin:password@192.168.1.1:554/Streaming/Channels/102/"
+
+def get_current_time():
+  now = datetime.now()
+  year = str(now.year)
+  month = str(now.month).zfill(2)
+  day = str(now.day).zfill(2)
+  hour = str(now.hour).zfill(2)
+  minute = str(now.minute).zfill(2)
+  second = str(now.second).zfill(2)
+  return(year + "-" + month + "-" + day + "-" + hour + "-" + minute + "-" + second)
 
 
 def set_input_tensor(interpreter, image):
@@ -47,7 +53,6 @@ def detect_objects(interpreter, image, threshold):
   interpreter.invoke()
 
   # Get all output details
-  boxes = get_output_tensor(interpreter, 0)
   classes = get_output_tensor(interpreter, 1)
   scores = get_output_tensor(interpreter, 2)
   count = int(get_output_tensor(interpreter, 3))
@@ -56,7 +61,6 @@ def detect_objects(interpreter, image, threshold):
   for i in range(count):
     if scores[i] >= threshold:
       result = {
-          'bounding_box': boxes[i],
           'class_id': classes[i],
           'score': scores[i]
       }
@@ -64,17 +68,25 @@ def detect_objects(interpreter, image, threshold):
   return results
 
 def main():
-
   interpreter = Interpreter("/tmp/detect.tflite")
   interpreter.allocate_tensors()
-  print(interpreter.get_input_details()[0]['shape'])
-  _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
+  video_feed = cv2.VideoCapture(VIDEO_STREAM_URL)
 
-  image = Image.open("./test.jpeg").convert('RGB').resize((input_width, input_height), Image.ANTIALIAS)
+  while (video_feed.isOpened()):
+    feed_opened, frame = video_feed.read()
 
-  results = detect_objects(interpreter, image, 0.4)
-  print(results)
+    if not feed_opened:
+      break
 
+    cropped_frame = frame[60:360, 200:500]
+
+    results = detect_objects(interpreter, cropped_frame, 0.6)
+    for result in results:
+        if result["class_id"] == 0:
+            filename = "./images/" + get_current_time() + ".jpg"
+            cv2.imwrite(filename,frame)
+
+  video_feed.release()
 
 if __name__ == '__main__':
   main()
